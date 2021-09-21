@@ -1,0 +1,77 @@
+/* QUERY1- query used for Who were our top 10 paying customers,
+how many payments did they make on a monthly basis during 2007, and what was the amount of the monthly payments? */
+WITH beetles AS (SELECT category.name, film.title, rental.rental_id
+                FROM category
+                JOIN film_category
+                ON category.category_id = film_category.category_id
+                JOIN film
+                ON film.film_id = film_category.category_id
+                JOIN inventory
+                ON film.film_id = inventory.film_id
+                JOIN rental
+                ON inventory.film_id = rental.rental_id)
+
+SELECT DISTINCT(beetles.title) film_title, beetles.name category_name, COUNT(rental_id) OVER(PARTITION BY beetles.rental_id) count_of_rental
+FROM beetles
+WHERE beetles.name = 'Animation' OR beetles.name = 'Children' OR beetles.name = 'Classics' OR beetles.name = 'Comedy' OR beetles.name = 'Family' OR beetles.name = 'Music'
+
+
+/* QUERY2- query used for How does the length of rental duration of family-friendly movies compares
+to the duration that all movies are rented for?*/
+
+ WITH pangolin AS (SELECT film.title, category.name, film.rental_duration
+                  FROM category
+                  JOIN film_category
+                  ON category.category_id = film_category.category_id
+                  JOIN film
+                  ON film.film_id = film_category.category_id
+                  JOIN inventory
+                  ON film.film_id = inventory.film_id)
+
+SELECT pangolin.title, pangolin.name, pangolin.rental_duration, NTILE(4) OVER(PARTITION BY pangolin.rental_duration) AS standard_quartile
+FROM pangolin
+WHERE pangolin.name = 'Animation' OR pangolin.name = 'Children' OR pangolin.name = 'Classics' OR pangolin.name = 'Comedy' OR pangolin.name = 'Family' OR pangolin.name = 'Music'
+GROUP BY 1, 2, 3
+
+
+/* QUERY3- query used for What is the performance of  the two stores based on how
+they compare in their count of rental orders during every month for all the years we have data for? */
+
+WITH matrix AS (SELECT rental.rental_date, payment.payment_id, rental.rental_id, customer.store_id
+               FROM rental
+               JOIN payment
+               ON rental.rental_id = payment.rental_id
+               JOIN customer
+               ON payment.customer_id = customer.customer_id)
+
+SELECT DATE_PART('month', matrix.rental_date) rental_month, DATE_PART('year', matrix.rental_date) rental_year, matrix.store_id, COUNT(*) count,
+       CASE WHEN DATE_PART('month', matrix.rental_date) = 1 THEN 'January'
+            WHEN DATE_PART('month', matrix.rental_date) = 2 THEN 'February'
+            WHEN DATE_PART('month', matrix.rental_date) = 3 THEN 'March'
+            WHEN DATE_PART('month', matrix.rental_date) = 4 THEN 'April'
+            WHEN DATE_PART('month', matrix.rental_date) = 5 THEN 'May'
+            WHEN DATE_PART('month', matrix.rental_date) = 6 THEN 'June'
+            WHEN DATE_PART('month', matrix.rental_date) = 7 THEN 'July'
+            WHEN DATE_PART('month', matrix.rental_date) = 8 THEN 'August'
+            WHEN DATE_PART('month', matrix.rental_date) = 9 THEN 'September'
+            WHEN DATE_PART('month', matrix.rental_date) = 10 THEN 'October'
+            WHEN DATE_PART('month', matrix.rental_date) = 11 THEN 'November'
+            WHEN DATE_PART('month', matrix.rental_date) = 12 THEN 'December' END AS months_in_letters,
+       CASE WHEN matrix.store_id = 1 THEN 'Store_1' WHEN matrix.store_id = 2 THEN 'Store_2' END AS stores
+FROM matrix
+GROUP BY 1, 2, 3
+ORDER BY count DESC
+
+/* QUERY4- query used for Who were our top 10 paying customers, how many payments did they
+make on a monthly basis during 2007, and what was the amount of the monthly payments? */
+WITH wax_fang AS (SELECT customer.first_name, customer.last_name, SUM(payment.amount) pay_amount, DATE_TRUNC('month', payment.payment_date) pay_month, COUNT(*) count
+                 FROM payment
+                 JOIN customer
+                 ON payment.customer_id = customer.customer_id
+                 WHERE DATE_TRUNC('month', payment.payment_date) BETWEEN '2007-01-01' AND '2017-12-31'
+                 GROUP BY 1, 2, 4
+                 ORDER BY 3 DESC
+                 LIMIT 10)
+
+SELECT wax_fang.pay_month, wax_fang.first_name || ' ' || wax_fang.last_name AS full_name, wax_fang.count, wax_fang.pay_amount
+FROM wax_fang
